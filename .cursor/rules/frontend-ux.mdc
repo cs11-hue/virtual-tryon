@@ -1,0 +1,24 @@
+---
+description: React/Next UI — Dropzone, 로딩 애니메이션, 스켈레톤
+globs: **/*.{tsx,jsx},frontend/**/*
+alwaysApply: false
+---
+
+# UI/UX Guidelines
+
+## 업로드
+- **Dropzone:** 드래그 앤 드롭 + 클릭 선택, 지원 포맷·최대 크기 안내.
+- 업로드 직후 클라이언트에서 미리보기; 백엔드 검증 실패 시 Dropzone 근처에 에러 표시.
+
+## 로딩 상태
+- 피팅·생성 중 **Progress bar** 또는 단계 표시 (전처리 → AI 생성 → 완료).
+- **Skeleton UI** 또는 짧은 애니메이션으로 대기 시간 체감 완화 (빈 화면 금지).
+- `isLoading` / `progress` / `error` / `resultUrl` 상태를 명시적 타입으로 관리한다.
+
+## 스타일
+- Tailwind로 기존 디자인 토큰(간격·색·타이포)에 맞춘다.
+- 접근성: 버튼·진행률에 `aria-*`, 키보드로 파일 선택 가능.
+
+## API 연동
+- 대용량 이미지는 프로젝트 표준(Base64 vs presigned URL)을 따른다.
+- 타임아웃·네트워크 오류는 사용자 메시지로 변환한다.

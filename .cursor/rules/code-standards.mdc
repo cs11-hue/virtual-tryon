@@ -1,0 +1,25 @@
+---
+description: 타입 힌트, 에러 분리, 모듈화 공통 규칙
+alwaysApply: true
+---
+
+# Code Style & Output
+
+## 타입
+- Python: 모든 public 함수·API에 type hints (`def fn(x: UploadFile) -> TryOnResult:`).
+- TypeScript: props·API 응답·훅 반환값에 interface/type 정의.
+
+## 에러 메시지 (이중 계층)
+| 계층 | 용도 | 예 |
+|------|------|-----|
+| 사용자 | UI/API `detail.message` | "전신이 보이는 사진을 업로드해 주세요" |
+| 로그 | `logger.exception` / structured fields | provider, latency, landmark count |
+
+사용자 메시지에 스택 트레이스·내부 경로를 노출하지 않는다.
+
+## 모듈화
+- 한 번에 수백 줄 작성하지 않는다. 파이프라인 단계·검증·마스킹·API 클라이언트는 파일/함수 단위로 분리한다.
+- 동일 로직 중복 시 기존 유틸을 확장한다.
+
+## 변경 범위
+- 작업 요청과 무관한 리팩터·문서·포맷 일괄 수정은 하지 않는다.

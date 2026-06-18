@@ -1,0 +1,28 @@
+---
+description: Try-On·생성형 AI API, 타임아웃, 프롬프트 매핑
+globs: backend/**/*.{py},**/services/**/*ai*,**/api/**/*tryon*
+alwaysApply: false
+---
+
+# AI Model Integration
+
+## API 호출
+- Replicate, Layer Diffusion, SD inpainting 등 외부 API는 **타임아웃·재시도 정책**을 명시한다.
+- 실패 시: 사용자에게 "잠시 후 다시 시도" 등 안내, 로그에 provider·status·request id 기록.
+
+## 로딩·진행 상태
+- 장시간 작업은 비동기(job id) 또는 스트리밍 진행률을 지원한다.
+- 프론트: Progress bar + 취소 가능 여부 문서화. 백엔드: 단계별 status (`preprocessing` | `generating` | `done`).
+
+## 스타일 → 프롬프트 매핑
+사용자 스타일 선택을 AI 파라미터에 **매핑 테이블**로 반영한다 (하드코딩 문자열 산재 금지).
+
+```python
+STYLE_PROMPTS: dict[str, StyleConfig] = {
+    "casual": StyleConfig(prompt="...", negative_prompt="...", guidance=7.5),
+    "formal": StyleConfig(prompt="...", ...),
+    "street": StyleConfig(prompt="...", ...),
+}
+```
+
+- UI 라벨(캐주얼/정장/스트릿)과 API 키는 한 곳에서만 정의한다.

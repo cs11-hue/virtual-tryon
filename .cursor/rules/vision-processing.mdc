@@ -1,0 +1,28 @@
+---
+description: 전신 검증, 포즈·마스킹, OpenCV/MediaPipe 처리
+globs: backend/**/*.py,**/vision/**/*.{py,ts},**/lib/**/*pose*
+alwaysApply: false
+---
+
+# Image & Vision Processing
+
+## 전신 사진 검증 (필수)
+MediaPipe Pose 등으로 업로드 이미지를 검증한다.
+
+- **거부:** 얼굴만, 상반신만, 사물·풍경, 키포인트 부족·신뢰도 낮음
+- **응답:** 사용자 친화적 메시지 (예: "전신이 보이는 사진을 업로드해 주세요")
+- **로그:** 검증 실패 시 키포인트 수·신뢰도 등 디버그 정보는 서버 로그만
+
+```python
+# ✅ 검증 실패 — 사용자 메시지 vs 로그 분리
+logger.debug("pose_validation_failed", extra={"visible_landmarks": n, "score": score})
+raise HTTPException(400, detail={"message": "전신이 보이는 사진을 업로드해 주세요."})
+```
+
+## 마스킹 (Try-On 영역)
+- 입혀질 영역(상의/하의/전신) 마스크를 정확히 추출한다.
+- 경계는 **blur/feather**로 자연스럽게 블렌딩한다 (하드 엣지 금지).
+- 마스크 생성·적용·후처리는 별도 함수로 분리한다.
+
+## 모듈화
+- `detect_pose`, `validate_full_body`, `extract_garment_mask`, `feather_mask` 등 단일 책임 함수로 나눈다.

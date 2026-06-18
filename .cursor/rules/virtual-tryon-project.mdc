@@ -1,0 +1,19 @@
+---
+description: AI 전신 가상 피팅 프로젝트 개요 및 기술 스택
+alwaysApply: true
+---
+
+# AI Full-Body Virtual Try-On & Styling
+
+## 목적
+사용자가 전신 사진을 업로드하면, AI가 체형·구도를 분석해 어울리는 옷을 가상으로 입히거나 스타일링한다.
+
+## 기술 스택
+- **Frontend:** React / Next.js + Tailwind CSS
+- **Backend:** Python (FastAPI 또는 Flask) — 이미지 처리·AI 연동
+- **Vision:** OpenCV, MediaPipe (신체 키포인트)
+- **Generative:** Stable Diffusion inpainting, Outfitting API (Replicate, Layer Diffusion 등)
+
+## 원칙
+- 요청 범위에 맞는 최소 변경만 수행한다.
+- 기존 모듈·패턴을 재사용하고, 한 파일에 과도하게 긴 코드를 쓰지 않는다.
