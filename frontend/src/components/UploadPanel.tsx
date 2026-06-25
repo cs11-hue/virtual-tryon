@@ -8,8 +8,8 @@ import { StylingProgress } from "@/components/StylingProgress";
 import { StylingResult } from "@/components/StylingResult";
 import { TryOnPreview } from "@/components/TryOnPreview";
 import { getStepLabel, useMockStyling } from "@/hooks/useMockStyling";
-import { useClothingOverlay } from "@/hooks/useClothingOverlay";
 import { useCustomClothing } from "@/hooks/useCustomClothing";
+import { useGarmentLayers } from "@/hooks/useGarmentLayers";
 import { usePhotoTransform } from "@/hooks/usePhotoTransform";
 import { usePhotoUpload } from "@/hooks/usePhotoUpload";
 import { useTryOnComposite } from "@/hooks/useTryOnComposite";
@@ -37,8 +37,14 @@ function getPanelDescription(
     case "result":
       return "슬라이더로 원본과 피팅 결과를 비교해 보세요.";
     default:
-      return "전신 사진·옷을 선택해 드래그로 옮기고, 더블클릭해 크기(%)를 입력하세요.";
+      return "옷을 여러 벌 선택해 드래그로 맞추고, 더블클릭해 크기(%)를 입력하세요.";
   }
+}
+
+function getSubmitLabel(items: ClothingItem[]): string {
+  if (items.length === 0) return "옷을 선택해 주세요";
+  if (items.length === 1) return `「${items[0].name}」 입히기`;
+  return `${items.length}벌 입히기`;
 }
 
 export function UploadPanel() {
@@ -58,9 +64,7 @@ export function UploadPanel() {
   const { customItems, addCustomClothing, removeCustomClothing } =
     useCustomClothing();
 
-  const [selectedClothingId, setSelectedClothingId] = useState<string | null>(
-    null,
-  );
+  const [selectedClothingIds, setSelectedClothingIds] = useState<string[]>([]);
   const fittingPreviewRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -75,41 +79,40 @@ export function UploadPanel() {
     [customItems],
   );
 
-  const selectedClothing = useMemo(
+  const selectedClothingItems = useMemo(
     () =>
-      selectedClothingId
-        ? resolveClothingById(selectedClothingId, customItems) ?? null
-        : null,
-    [selectedClothingId, customItems],
+      selectedClothingIds
+        .map((id) => resolveClothingById(id, customItems))
+        .filter((item): item is ClothingItem => Boolean(item)),
+    [selectedClothingIds, customItems],
   );
 
-  const {
-    overlay: garmentTransform,
-    garmentAspect,
-    setOverlay: setGarmentTransform,
-    resetOverlay: resetGarmentTransform,
-  } = useClothingOverlay(selectedClothing, photoTransform, photoAspect);
+  const { layers: garmentLayers, setTransform: setGarmentTransform, resetAll: resetGarmentTransforms } =
+    useGarmentLayers(selectedClothingItems, photoTransform, photoAspect);
 
   const compositeActive = phase === "loading" || phase === "result";
 
   const { compositedUrl } = useTryOnComposite(
     previewUrl,
-    selectedClothing,
+    garmentLayers,
     photoTransform,
-    garmentTransform,
     compositeActive,
   );
 
   const canSubmit =
     Boolean(file) &&
-    Boolean(selectedClothing) &&
+    selectedClothingItems.length > 0 &&
+    garmentLayers.length > 0 &&
     Boolean(photoTransform) &&
-    Boolean(garmentTransform) &&
     !error &&
     phase === "idle";
 
-  const handleSelectClothing = (item: ClothingItem) => {
-    setSelectedClothingId(item.id);
+  const handleToggleClothing = (item: ClothingItem) => {
+    setSelectedClothingIds((prev) =>
+      prev.includes(item.id)
+        ? prev.filter((id) => id !== item.id)
+        : [...prev, item.id],
+    );
   };
 
   useEffect(() => {
@@ -118,7 +121,7 @@ export function UploadPanel() {
       behavior: "smooth",
       block: "start",
     });
-  }, [previewUrl, selectedClothingId, phase]);
+  }, [previewUrl, selectedClothingIds.length, phase]);
 
   const handleStartStyling = () => {
     if (!canSubmit) return;
@@ -131,18 +134,18 @@ export function UploadPanel() {
 
   const handleClearPhoto = () => {
     clearPhoto();
-    setSelectedClothingId(null);
+    setSelectedClothingIds([]);
   };
 
   const handleRemoveCustom = (id: string) => {
     removeCustomClothing(id);
-    if (selectedClothingId === id) {
-      setSelectedClothingId(null);
-    }
+    setSelectedClothingIds((prev) => prev.filter((itemId) => itemId !== id));
   };
 
   const handleCustomAdded = (item: ClothingItem) => {
-    setSelectedClothingId(item.id);
+    setSelectedClothingIds((prev) =>
+      prev.includes(item.id) ? prev : [...prev, item.id],
+    );
   };
 
   const panelWidthClass =
@@ -188,18 +191,16 @@ export function UploadPanel() {
           previewUrl={previewUrl}
           photoTransform={photoTransform}
           photoAspect={photoAspect}
-          clothing={selectedClothing}
-          garmentTransform={garmentTransform}
-          garmentAspect={garmentAspect}
+          garmentLayers={garmentLayers}
           compositedUrl={compositedUrl}
         />
       )}
 
-      {phase === "result" && previewUrl && selectedClothing && (
+      {phase === "result" && previewUrl && selectedClothingItems.length > 0 && (
         <StylingResult
           originalUrl={previewUrl}
           afterUrl={compositedUrl ?? previewUrl}
-          clothing={selectedClothing}
+          clothingItems={selectedClothingItems}
           onRetry={handleRetry}
         />
       )}
@@ -224,10 +225,8 @@ export function UploadPanel() {
                   photoTransform={photoTransform}
                   onPhotoTransformChange={setPhotoTransform}
                   photoAspect={photoAspect}
-                  clothing={selectedClothing}
-                  garmentTransform={garmentTransform}
+                  garmentLayers={garmentLayers}
                   onGarmentTransformChange={setGarmentTransform}
-                  garmentAspect={garmentAspect}
                   compositedUrl={null}
                   interactive
                 />
@@ -239,10 +238,10 @@ export function UploadPanel() {
                   >
                     사진 위치 초기화
                   </button>
-                  {selectedClothing && (
+                  {garmentLayers.length > 0 && (
                     <button
                       type="button"
-                      onClick={resetGarmentTransform}
+                      onClick={resetGarmentTransforms}
                       className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100"
                     >
                       옷 위치 초기화
@@ -255,13 +254,13 @@ export function UploadPanel() {
                   >
                     다른 사진
                   </button>
-                  {selectedClothing && (
+                  {selectedClothingItems.length > 0 && (
                     <button
                       type="button"
-                      onClick={() => setSelectedClothingId(null)}
+                      onClick={() => setSelectedClothingIds([])}
                       className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-violet-300"
                     >
-                      옷 다시 고르기
+                      옷 선택 해제
                     </button>
                   )}
                   <button
@@ -278,8 +277,8 @@ export function UploadPanel() {
 
           <ClothingPicker
             items={clothingItems}
-            selectedId={selectedClothingId}
-            onSelect={handleSelectClothing}
+            selectedIds={selectedClothingIds}
+            onToggle={handleToggleClothing}
             onAddCustom={addCustomClothing}
             onCustomAdded={handleCustomAdded}
             onRemoveCustom={handleRemoveCustom}
@@ -299,9 +298,7 @@ export function UploadPanel() {
                 : "cursor-not-allowed bg-slate-200 text-slate-500",
             ].join(" ")}
           >
-            {selectedClothing
-              ? `「${selectedClothing.name}」 입히기`
-              : "옷을 선택해 주세요"}
+            {getSubmitLabel(selectedClothingItems)}
           </button>
         </div>
       )}

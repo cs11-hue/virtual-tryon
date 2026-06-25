@@ -9,14 +9,26 @@ import type { ClothingItem } from "@/types/clothing";
 export interface StylingResultProps {
   originalUrl: string;
   afterUrl: string;
-  clothing: ClothingItem;
+  clothingItems: ClothingItem[];
   onRetry: () => void;
+}
+
+function getResultTitle(items: ClothingItem[]): string {
+  if (items.length === 1) return `${items[0].name}을 입혔습니다`;
+  return `${items.length}벌을 입혔습니다`;
+}
+
+function getResultSubtitle(items: ClothingItem[]): string {
+  if (items.length === 1) {
+    return `${items[0].categoryLabel} · 내 사진 위 가상 피팅 결과`;
+  }
+  return items.map((item) => item.name).join(" · ");
 }
 
 export function StylingResult({
   originalUrl,
   afterUrl,
-  clothing,
+  clothingItems,
   onRetry,
 }: StylingResultProps) {
   const [isDownloading, setIsDownloading] = useState(false);
@@ -26,7 +38,7 @@ export function StylingResult({
     setIsDownloading(true);
     setDownloadError(null);
 
-    const filename = `virtual-tryon-${clothing.id}-${Date.now()}.jpg`;
+    const filename = `virtual-tryon-${Date.now()}.jpg`;
 
     try {
       await downloadBlobUrl(afterUrl, filename);
@@ -35,7 +47,7 @@ export function StylingResult({
     } finally {
       setIsDownloading(false);
     }
-  }, [afterUrl, clothing.id]);
+  }, [afterUrl]);
 
   return (
     <div className="space-y-6" role="region" aria-labelledby="result-title">
@@ -48,10 +60,10 @@ export function StylingResult({
           id="result-title"
           className="mt-3 text-lg font-bold text-slate-900 sm:text-xl"
         >
-          {clothing.name}을 입혔습니다
+          {getResultTitle(clothingItems)}
         </h3>
         <p className="mt-1 text-sm text-slate-500">
-          {clothing.categoryLabel} · 내 사진 위 가상 피팅 결과
+          {getResultSubtitle(clothingItems)}
         </p>
       </div>
 
@@ -59,7 +71,7 @@ export function StylingResult({
         beforeSrc={originalUrl}
         afterSrc={afterUrl}
         beforeAlt="업로드한 원본 전신 사진"
-        afterAlt={`${clothing.name}을 입힌 결과`}
+        afterAlt="가상 피팅 결과"
         beforeLabel="원본"
         afterLabel="피팅 결과"
         beforeUnoptimized

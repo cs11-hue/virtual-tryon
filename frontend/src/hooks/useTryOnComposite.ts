@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { compositeTryOnImage } from "@/lib/composite-tryon-image";
-import type { ClothingItem } from "@/types/clothing";
+import type { GarmentLayerState } from "@/types/garment-layer";
 import type { LayerTransform } from "@/types/layer";
 
 export interface UseTryOnCompositeReturn {
@@ -14,9 +14,8 @@ export interface UseTryOnCompositeReturn {
 
 export function useTryOnComposite(
   photoUrl: string | null,
-  clothing: ClothingItem | null,
+  garmentLayers: GarmentLayerState[],
   photoTransform: LayerTransform | null,
-  garmentTransform: LayerTransform | null,
   active: boolean,
 ): UseTryOnCompositeReturn {
   const [compositedUrl, setCompositedUrl] = useState<string | null>(null);
@@ -24,13 +23,19 @@ export function useTryOnComposite(
   const [error, setError] = useState<string | null>(null);
   const blobUrlRef = useRef<string | null>(null);
 
+  const garmentKey = garmentLayers
+    .map(
+      (layer) =>
+        `${layer.clothing.id}:${layer.transform.leftPercent},${layer.transform.topPercent},${layer.transform.widthPercent}`,
+    )
+    .join("|");
+
   useEffect(() => {
     if (
       !active ||
       !photoUrl ||
-      !clothing ||
       !photoTransform ||
-      !garmentTransform
+      garmentLayers.length === 0
     ) {
       if (blobUrlRef.current) {
         URL.revokeObjectURL(blobUrlRef.current);
@@ -48,9 +53,11 @@ export function useTryOnComposite(
 
     compositeTryOnImage(
       photoUrl,
-      clothing.imageUrl,
       photoTransform,
-      garmentTransform,
+      garmentLayers.map((layer) => ({
+        imageUrl: layer.clothing.imageUrl,
+        transform: layer.transform,
+      })),
     )
       .then((url) => {
         if (cancelled) {
@@ -76,7 +83,7 @@ export function useTryOnComposite(
     return () => {
       cancelled = true;
     };
-  }, [active, photoUrl, clothing, photoTransform, garmentTransform]);
+  }, [active, photoUrl, photoTransform, garmentKey, garmentLayers]);
 
   useEffect(() => {
     return () => {

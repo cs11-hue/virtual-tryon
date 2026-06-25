@@ -2,7 +2,7 @@
 
 import { TryOnPreview } from "@/components/TryOnPreview";
 import { STYLING_LOADING_MESSAGE } from "@/types/styling";
-import type { ClothingItem } from "@/types/clothing";
+import type { GarmentLayerState } from "@/types/garment-layer";
 import type { LayerTransform } from "@/types/layer";
 
 export interface StylingProgressProps {
@@ -10,9 +10,7 @@ export interface StylingProgressProps {
   previewUrl: string | null;
   photoTransform?: LayerTransform | null;
   photoAspect?: number;
-  clothing?: ClothingItem | null;
-  garmentTransform?: LayerTransform | null;
-  garmentAspect?: number;
+  garmentLayers?: GarmentLayerState[];
   compositedUrl?: string | null;
 }
 
@@ -21,11 +19,11 @@ export function StylingProgress({
   previewUrl,
   photoTransform = null,
   photoAspect = 3 / 4,
-  clothing = null,
-  garmentTransform = null,
-  garmentAspect = 0.75,
+  garmentLayers = [],
   compositedUrl = null,
 }: StylingProgressProps) {
+  const garmentCount = garmentLayers.length;
+
   return (
     <div
       role="status"
@@ -40,9 +38,11 @@ export function StylingProgress({
         <p className="text-sm font-medium text-slate-800">
           {STYLING_LOADING_MESSAGE}
         </p>
-        {clothing && (
+        {garmentCount > 0 && (
           <p className="mt-1 text-xs text-violet-600">
-            「{clothing.name}」 적용 중
+            {garmentCount === 1
+              ? `「${garmentLayers[0].clothing.name}」 적용 중`
+              : `${garmentCount}벌 적용 중`}
           </p>
         )}
         <p className="mt-1 text-xs text-slate-500">{progress}% 완료</p>
@@ -80,9 +80,7 @@ export function StylingProgress({
           photoUrl={previewUrl}
           photoTransform={photoTransform}
           photoAspect={photoAspect}
-          clothing={clothing}
-          garmentTransform={garmentTransform}
-          garmentAspect={garmentAspect}
+          garmentLayers={garmentLayers}
           compositedUrl={compositedUrl}
           isCompositing={progress < 100 && !compositedUrl}
         />

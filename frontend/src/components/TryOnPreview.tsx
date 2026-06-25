@@ -3,20 +3,18 @@
 import { useEffect, useRef, useState } from "react";
 
 import { DraggableLayer, StaticLayer } from "@/components/DraggableLayer";
-import type { ClothingItem } from "@/types/clothing";
+import type { GarmentLayerState } from "@/types/garment-layer";
 import type { LayerTransform } from "@/types/layer";
 
-type ActiveLayer = "photo" | "garment";
+type ActiveLayer = "photo" | string;
 
 export interface TryOnPreviewProps {
   photoUrl: string;
   photoTransform: LayerTransform | null;
   onPhotoTransformChange?: (transform: LayerTransform) => void;
   photoAspect: number;
-  clothing: ClothingItem | null;
-  garmentTransform: LayerTransform | null;
-  onGarmentTransformChange?: (transform: LayerTransform) => void;
-  garmentAspect: number;
+  garmentLayers: GarmentLayerState[];
+  onGarmentTransformChange?: (clothingId: string, transform: LayerTransform) => void;
   compositedUrl: string | null;
   isCompositing?: boolean;
   interactive?: boolean;
@@ -27,10 +25,8 @@ export function TryOnPreview({
   photoTransform,
   onPhotoTransformChange,
   photoAspect,
-  clothing,
-  garmentTransform,
+  garmentLayers,
   onGarmentTransformChange,
-  garmentAspect,
   compositedUrl,
   isCompositing = false,
   interactive = false,
@@ -39,35 +35,38 @@ export function TryOnPreview({
   const [activeLayer, setActiveLayer] = useState<ActiveLayer>("photo");
 
   useEffect(() => {
-    setActiveLayer(clothing ? "garment" : "photo");
-  }, [clothing?.id, clothing]);
+    if (garmentLayers.length === 0) {
+      setActiveLayer("photo");
+      return;
+    }
+    if (activeLayer !== "photo" && !garmentLayers.some((l) => l.clothing.id === activeLayer)) {
+      setActiveLayer(garmentLayers[garmentLayers.length - 1].clothing.id);
+    }
+  }, [activeLayer, garmentLayers]);
 
-  const canInteract =
-    interactive && !compositedUrl && !isCompositing;
-
+  const canInteract = interactive && !compositedUrl && !isCompositing;
   const canInteractPhoto =
     canInteract && photoTransform && onPhotoTransformChange;
-
-  const canInteractGarment =
-    canInteract &&
-    clothing &&
-    garmentTransform &&
-    onGarmentTransformChange;
+  const canInteractGarments =
+    canInteract && garmentLayers.length > 0 && onGarmentTransformChange;
 
   const showLayers = !compositedUrl && photoTransform;
 
-  const photoZIndex =
-    activeLayer === "photo" && canInteractPhoto ? 30 : 10;
-  const garmentZIndex =
-    activeLayer === "garment" && canInteractGarment ? 30 : 20;
+  const garmentCount = garmentLayers.length;
+  const selectedLabel =
+    garmentCount === 0
+      ? null
+      : garmentCount === 1
+        ? garmentLayers[0].clothing.name
+        : `${garmentCount}벌 선택`;
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium text-slate-700">피팅 미리보기</p>
-        {clothing && (
+        {selectedLabel && (
           <span className="max-w-[55%] truncate rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700">
-            {clothing.name}
+            {selectedLabel}
           </span>
         )}
       </div>
@@ -85,26 +84,27 @@ export function TryOnPreview({
                   : "border-slate-200 bg-white text-slate-600 hover:border-sky-300",
               ].join(" ")}
             >
-              전신 사진 조절
+              전신 사진
             </button>
-            {clothing && (
+            {garmentLayers.map((layer) => (
               <button
+                key={layer.clothing.id}
                 type="button"
-                onClick={() => setActiveLayer("garment")}
+                onClick={() => setActiveLayer(layer.clothing.id)}
                 className={[
-                  "rounded-lg border px-3 py-1.5 text-xs font-medium transition",
-                  activeLayer === "garment"
+                  "max-w-[9rem] truncate rounded-lg border px-3 py-1.5 text-xs font-medium transition",
+                  activeLayer === layer.clothing.id
                     ? "border-violet-500 bg-violet-50 text-violet-800 ring-2 ring-violet-200"
                     : "border-slate-200 bg-white text-slate-600 hover:border-violet-300",
                 ].join(" ")}
               >
-                옷 조절
+                {layer.clothing.name}
               </button>
-            )}
+            ))}
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-            위에서 조절할 대상을 고른 뒤, <strong>드래그</strong>로 옮기고{" "}
-            <strong>더블클릭</strong>하면 크기를 숫자로 입력할 수 있어요.
+            조절할 항목을 고른 뒤 <strong>드래그</strong>로 옮기고{" "}
+            <strong>더블클릭</strong>해 크기(%)를 입력하세요.
           </div>
         </>
       )}
@@ -117,11 +117,7 @@ export function TryOnPreview({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={compositedUrl}
-            alt={
-              clothing
-                ? `${clothing.name}을 입힌 미리보기`
-                : "피팅 미리보기"
-            }
+            alt="피팅 미리보기"
             className="h-full w-full object-contain"
           />
         ) : (
@@ -135,7 +131,7 @@ export function TryOnPreview({
                   onTransformChange={onPhotoTransformChange}
                   containerRef={containerRef}
                   aspect={photoAspect}
-                  zIndex={photoZIndex}
+                  zIndex={activeLayer === "photo" ? 30 : 10}
                   borderClassName="border-sky-500 bg-sky-400/10"
                   label="전신 사진"
                   isActive={activeLayer === "photo"}
@@ -149,31 +145,42 @@ export function TryOnPreview({
                   zIndex={10}
                 />
               )}
-              {clothing &&
-                garmentTransform &&
-                (canInteractGarment && onGarmentTransformChange ? (
-                  <DraggableLayer
-                    imageUrl={clothing.imageUrl}
-                    alt={clothing.name}
-                    transform={garmentTransform}
-                    onTransformChange={onGarmentTransformChange}
-                    containerRef={containerRef}
-                    aspect={garmentAspect}
-                    zIndex={garmentZIndex}
-                    borderClassName="border-violet-500 bg-violet-400/15"
-                    label="옷"
-                    isActive={activeLayer === "garment"}
-                  />
-                ) : (
+              {garmentLayers.map((layer, index) => {
+                const isActive = activeLayer === layer.clothing.id;
+                const zIndex = isActive && canInteractGarments ? 30 : 20 + index;
+
+                if (canInteractGarments && onGarmentTransformChange) {
+                  return (
+                    <DraggableLayer
+                      key={layer.clothing.id}
+                      imageUrl={layer.clothing.imageUrl}
+                      alt={layer.clothing.name}
+                      transform={layer.transform}
+                      onTransformChange={(transform) =>
+                        onGarmentTransformChange(layer.clothing.id, transform)
+                      }
+                      containerRef={containerRef}
+                      aspect={layer.aspect}
+                      zIndex={zIndex}
+                      borderClassName="border-violet-500 bg-violet-400/15"
+                      label={layer.clothing.name}
+                      isActive={isActive}
+                    />
+                  );
+                }
+
+                return (
                   <StaticLayer
-                    imageUrl={clothing.imageUrl}
-                    transform={garmentTransform}
+                    key={layer.clothing.id}
+                    imageUrl={layer.clothing.imageUrl}
+                    transform={layer.transform}
                     containerRef={containerRef}
-                    aspect={garmentAspect}
-                    zIndex={20}
-                    opacity={garmentTransform.opacity}
+                    aspect={layer.aspect}
+                    zIndex={20 + index}
+                    opacity={layer.transform.opacity}
                   />
-                ))}
+                );
+              })}
             </>
           )
         )}
@@ -188,8 +195,11 @@ export function TryOnPreview({
 
         {canInteract && (
           <span className="pointer-events-none absolute bottom-3 left-3 z-40 rounded-md bg-black/55 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-sm">
-            {activeLayer === "photo" ? "전신 사진" : "옷"} · 드래그 이동 ·
-            더블클릭 크기 입력
+            {activeLayer === "photo"
+              ? "전신 사진"
+              : garmentLayers.find((l) => l.clothing.id === activeLayer)?.clothing
+                  .name ?? "옷"}{" "}
+            · 드래그 · 더블클릭
           </span>
         )}
       </div>
