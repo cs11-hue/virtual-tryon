@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { compositeTryOnImage } from "@/lib/composite-tryon-image";
-import type { ClothingItem } from "@/types/clothing";
+import type { ClothingItem, ClothingOverlay } from "@/types/clothing";
 
 export interface UseTryOnCompositeReturn {
   compositedUrl: string | null;
@@ -14,6 +14,8 @@ export interface UseTryOnCompositeReturn {
 export function useTryOnComposite(
   photoUrl: string | null,
   clothing: ClothingItem | null,
+  overlay: ClothingOverlay | null,
+  active: boolean,
 ): UseTryOnCompositeReturn {
   const [compositedUrl, setCompositedUrl] = useState<string | null>(null);
   const [isCompositing, setIsCompositing] = useState(false);
@@ -21,7 +23,7 @@ export function useTryOnComposite(
   const blobUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!photoUrl || !clothing) {
+    if (!active || !photoUrl || !clothing || !overlay) {
       if (blobUrlRef.current) {
         URL.revokeObjectURL(blobUrlRef.current);
         blobUrlRef.current = null;
@@ -36,7 +38,7 @@ export function useTryOnComposite(
     setIsCompositing(true);
     setError(null);
 
-    compositeTryOnImage(photoUrl, clothing)
+    compositeTryOnImage(photoUrl, clothing.imageUrl, overlay)
       .then((url) => {
         if (cancelled) {
           URL.revokeObjectURL(url);
@@ -61,7 +63,7 @@ export function useTryOnComposite(
     return () => {
       cancelled = true;
     };
-  }, [photoUrl, clothing]);
+  }, [active, photoUrl, clothing, overlay]);
 
   useEffect(() => {
     return () => {

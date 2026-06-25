@@ -11,5 +11,8 @@ if (-not (Test-Path "node_modules")) {
   npm install
 }
 
-Write-Host "Starting dev server at http://localhost:3000"
+Write-Host "Starting dev server"
+Write-Host "  Local:  http://localhost:3000"
+Write-Host "  Pages:  https://cs11-hue.github.io/virtual-tryon/"
+Write-Host "(localhost:3000/virtual-tryon 은 404입니다 — 위 주소를 사용하세요)"
 npm run dev

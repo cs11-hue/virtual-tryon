@@ -1,4 +1,6 @@
-import type { ClothingItem } from "@/types/clothing";
+import type { ClothingOverlay } from "@/types/clothing";
+
+import { overlayToPixelRect } from "./object-contain-layout";
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -12,31 +14,18 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-function drawCover(
-  ctx: CanvasRenderingContext2D,
-  image: HTMLImageElement,
-  width: number,
-  height: number,
-): void {
-  const scale = Math.max(width / image.width, height / image.height);
-  const drawWidth = image.width * scale;
-  const drawHeight = image.height * scale;
-  const offsetX = (width - drawWidth) / 2;
-  const offsetY = (height - drawHeight) / 2;
-  ctx.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
-}
-
 /**
  * 사용자 사진 위에 선택한 옷 이미지를 합성해 Blob URL을 반환한다.
  * (백엔드 AI 피팅 연동 전 Mock)
  */
 export async function compositeTryOnImage(
   photoUrl: string,
-  clothing: ClothingItem,
+  garmentUrl: string,
+  overlay: ClothingOverlay,
 ): Promise<string> {
   const [photo, garment] = await Promise.all([
     loadImage(photoUrl),
-    loadImage(clothing.imageUrl),
+    loadImage(garmentUrl),
   ]);
 
   const width = photo.naturalWidth || photo.width;
@@ -49,15 +38,23 @@ export async function compositeTryOnImage(
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("CANVAS_CONTEXT_FAILED");
 
-  drawCover(ctx, photo, width, height);
+  ctx.drawImage(photo, 0, 0, width, height);
 
-  const garmentWidth = (width * clothing.overlay.widthPercent) / 100;
-  const garmentHeight = (garment.height / garment.width) * garmentWidth;
-  const left = (width * clothing.overlay.leftPercent) / 100;
-  const top = (height * clothing.overlay.topPercent) / 100;
+  const imageRect = { x: 0, y: 0, width, height };
+  const garmentAspect =
+    garment.naturalWidth > 0
+      ? garment.naturalWidth / garment.naturalHeight
+      : 0.75;
+  const pixelRect = overlayToPixelRect(imageRect, overlay, garmentAspect);
 
-  ctx.globalAlpha = clothing.overlay.opacity ?? 0.9;
-  ctx.drawImage(garment, left, top, garmentWidth, garmentHeight);
+  ctx.globalAlpha = overlay.opacity ?? 0.9;
+  ctx.drawImage(
+    garment,
+    pixelRect.x,
+    pixelRect.y,
+    pixelRect.width,
+    pixelRect.height,
+  );
   ctx.globalAlpha = 1;
 
   const blob = await new Promise<Blob>((resolve, reject) => {

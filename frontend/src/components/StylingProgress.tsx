@@ -2,12 +2,13 @@
 
 import { TryOnPreview } from "@/components/TryOnPreview";
 import { STYLING_LOADING_MESSAGE } from "@/types/styling";
-import type { ClothingItem } from "@/types/clothing";
+import type { ClothingItem, ClothingOverlay } from "@/types/clothing";
 
 export interface StylingProgressProps {
   progress: number;
   previewUrl: string | null;
   clothing?: ClothingItem | null;
+  overlay?: ClothingOverlay | null;
   compositedUrl?: string | null;
 }
 
@@ -15,6 +16,7 @@ export function StylingProgress({
   progress,
   previewUrl,
   clothing = null,
+  overlay = null,
   compositedUrl = null,
 }: StylingProgressProps) {
   return (
@@ -66,13 +68,13 @@ export function StylingProgress({
         </div>
       </div>
 
-      {previewUrl && clothing && (
+      {previewUrl && clothing && overlay && (
         <TryOnPreview
           photoUrl={previewUrl}
           clothing={clothing}
+          overlay={overlay}
           compositedUrl={compositedUrl}
-          isCompositing={progress < 100}
-          showOverlayPreview={!compositedUrl}
+          isCompositing={progress < 100 && !compositedUrl}
         />
       )}
 

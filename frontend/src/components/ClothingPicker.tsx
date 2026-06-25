@@ -45,19 +45,21 @@ export function ClothingPicker({
 
       <CustomClothingUpload onAdd={onAddCustom} onAdded={onCustomAdded} />
 
-      <div
-        role="listbox"
-        aria-label="입힐 옷 목록"
-        aria-disabled={disabled}
-        className={[
-          "grid grid-cols-2 gap-2.5 sm:grid-cols-4",
-          disabled ? "pointer-events-none opacity-50" : "",
-        ].join(" ")}
-      >
+      {disabled ? (
+        <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center text-xs text-slate-500">
+          전신 사진을 먼저 올려 주세요. 그다음 옷을 고르거나 내 옷을 추가할 수
+          있습니다.
+        </p>
+      ) : (
+        <div
+          role="listbox"
+          aria-label="입힐 옷 목록"
+          className="grid grid-cols-2 gap-2.5 sm:grid-cols-4"
+        >
         {items.map((item) => {
           const isSelected = item.id === selectedId;
           return (
-            <div key={item.id} className="relative">
+            <div key={item.id} className="group relative">
               {item.isCustom && onRemoveCustom && !disabled && (
                 <button
                   type="button"
@@ -114,7 +116,8 @@ export function ClothingPicker({
             </div>
           );
         })}
-      </div>
+        </div>
+      )}
 
       {!selectedId && (
         <p className="text-center text-xs text-amber-600" role="status">

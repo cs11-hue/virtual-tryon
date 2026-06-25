@@ -25,6 +25,17 @@ export default function HomePage() {
             전신 사진을 업로드하고, 카탈로그에서 고르거나 직접 올린 옷을
             선택하면 AI가 내 사진 위에 가상으로 입혀 줍니다.
           </p>
+          {process.env.NEXT_PUBLIC_SITE_URL && (
+            <p className="mt-3 text-xs text-slate-500">
+              배포 주소:{" "}
+              <a
+                href={process.env.NEXT_PUBLIC_SITE_URL}
+                className="text-violet-300 underline"
+              >
+                {process.env.NEXT_PUBLIC_SITE_URL}
+              </a>
+            </p>
+          )}
         </div>
 
         <UploadPanel />

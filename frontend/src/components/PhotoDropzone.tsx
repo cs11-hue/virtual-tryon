@@ -5,7 +5,6 @@ import { useCallback, type DragEvent, type KeyboardEvent } from "react";
 
 import {
   ACCEPTED_EXTENSIONS,
-  ACCEPTED_IMAGE_TYPES,
   MAX_FILE_SIZE_LABEL,
 } from "@/lib/validate-image-file";
 
@@ -13,7 +12,6 @@ export interface PhotoDropzoneProps {
   previewUrl: string | null;
   error: string | null;
   isDragging: boolean;
-  inputRef: React.RefObject<HTMLInputElement | null>;
   onFileSelect: (file: File) => void;
   onDragStateChange: (isDragging: boolean) => void;
   onOpenPicker: () => void;
@@ -25,14 +23,12 @@ export function PhotoDropzone({
   previewUrl,
   error,
   isDragging,
-  inputRef,
   onFileSelect,
   onDragStateChange,
   onOpenPicker,
   onClear,
   disabled = false,
 }: PhotoDropzoneProps) {
-  const accept = ACCEPTED_IMAGE_TYPES.join(",");
   const hasPreview = Boolean(previewUrl);
 
   const handleDragOver = useCallback(
@@ -61,14 +57,6 @@ export function PhotoDropzone({
       if (file) onFileSelect(file);
     },
     [disabled, onDragStateChange, onFileSelect],
-  );
-
-  const handleInputChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      if (file) onFileSelect(file);
-    },
-    [onFileSelect],
   );
 
   const handleKeyDown = useCallback(
@@ -108,17 +96,6 @@ export function PhotoDropzone({
                 : "border-slate-300 bg-white/60 hover:border-violet-300 hover:bg-violet-50/30",
         ].join(" ")}
       >
-        <input
-          ref={inputRef}
-          type="file"
-          accept={accept}
-          className="sr-only"
-          disabled={disabled}
-          onChange={handleInputChange}
-          aria-hidden
-          tabIndex={-1}
-        />
-
         {hasPreview && previewUrl ? (
           <div className="relative aspect-[3/4] w-full min-h-[320px]">
             <Image

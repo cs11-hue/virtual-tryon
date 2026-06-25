@@ -1,18 +1,24 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ClothingPicker } from "@/components/ClothingPicker";
 import { PhotoDropzone } from "@/components/PhotoDropzone";
 import { StylingProgress } from "@/components/StylingProgress";
 import { StylingResult } from "@/components/StylingResult";
-import { TryOnPreview } from "@/components/TryOnPreview";
+import {
+  PhotoPreviewFrame,
+  TryOnPreview,
+} from "@/components/TryOnPreview";
 import { getStepLabel, useMockStyling } from "@/hooks/useMockStyling";
+import { useClothingOverlay } from "@/hooks/useClothingOverlay";
 import { useCustomClothing } from "@/hooks/useCustomClothing";
 import { usePhotoUpload } from "@/hooks/usePhotoUpload";
 import { useTryOnComposite } from "@/hooks/useTryOnComposite";
 import { mergeClothingCatalog, resolveClothingById } from "@/lib/resolve-clothing";
-import type { ClothingItem } from "@/types/clothing";
+import { normalizeOverlay } from "@/lib/overlay-bounds";
+import { ACCEPTED_IMAGE_TYPES } from "@/lib/validate-image-file";
+import type { ClothingItem, ClothingOverlay } from "@/types/clothing";
 
 function getPanelTitle(phase: ReturnType<typeof useMockStyling>["phase"]): string {
   switch (phase) {
@@ -34,7 +40,7 @@ function getPanelDescription(
     case "result":
       return "슬라이더로 원본과 피팅 결과를 비교해 보세요.";
     default:
-      return "전신 사진을 올리고 입힐 옷을 고르거나 직접 올려 미리보기를 확인하세요.";
+      return "옷을 고른 뒤 미리보기에서 드래그로 옮기고, 더블클릭으로 크기를 바꿔 보세요.";
   }
 }
 
@@ -58,6 +64,7 @@ export function UploadPanel() {
   const [selectedClothingId, setSelectedClothingId] = useState<string | null>(
     null,
   );
+  const fittingPreviewRef = useRef<HTMLDivElement>(null);
 
   const clothingItems = useMemo(
     () => mergeClothingCatalog(customItems),
@@ -72,15 +79,40 @@ export function UploadPanel() {
     [selectedClothingId, customItems],
   );
 
-  const { compositedUrl, isCompositing, error: compositeError } =
-    useTryOnComposite(previewUrl, selectedClothing);
+  const { overlay, setOverlay, resetOverlay } =
+    useClothingOverlay(selectedClothing);
+
+  const handleOverlayChange = (next: ClothingOverlay) => {
+    setOverlay(normalizeOverlay(next));
+  };
+
+  const compositeActive = phase === "loading" || phase === "result";
+
+  const { compositedUrl } = useTryOnComposite(
+    previewUrl,
+    selectedClothing,
+    overlay,
+    compositeActive,
+  );
 
   const canSubmit =
-    Boolean(file) && Boolean(selectedClothing) && !error && phase === "idle";
+    Boolean(file) &&
+    Boolean(selectedClothing) &&
+    Boolean(overlay) &&
+    !error &&
+    phase === "idle";
 
   const handleSelectClothing = (item: ClothingItem) => {
     setSelectedClothingId(item.id);
   };
+
+  useEffect(() => {
+    if (!previewUrl || !selectedClothingId || phase !== "idle") return;
+    fittingPreviewRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, [previewUrl, selectedClothingId, phase]);
 
   const handleStartStyling = () => {
     if (!canSubmit) return;
@@ -108,13 +140,27 @@ export function UploadPanel() {
   };
 
   const panelWidthClass =
-    phase === "result" ? "max-w-3xl" : previewUrl ? "max-w-2xl" : "max-w-lg";
+    phase === "result"
+      ? "max-w-3xl"
+      : previewUrl && selectedClothing
+        ? "max-w-2xl"
+        : "max-w-lg";
 
   return (
     <section
       aria-labelledby="upload-panel-title"
       className={`w-full ${panelWidthClass} rounded-3xl border border-white/60 bg-white/80 p-6 shadow-xl shadow-violet-900/5 backdrop-blur-md sm:p-8`}
     >
+      <input
+        ref={inputRef}
+        type="file"
+        accept={ACCEPTED_IMAGE_TYPES.join(",")}
+        className="sr-only"
+        onChange={(event) => handleFile(event.target.files?.[0] ?? null)}
+        aria-hidden
+        tabIndex={-1}
+      />
+
       <header className="mb-6">
         <p className="text-xs font-semibold uppercase tracking-wider text-violet-600">
           {getStepLabel(phase)}
@@ -135,6 +181,7 @@ export function UploadPanel() {
           progress={progress}
           previewUrl={previewUrl}
           clothing={selectedClothing}
+          overlay={overlay}
           compositedUrl={compositedUrl}
         />
       )}
@@ -155,32 +202,42 @@ export function UploadPanel() {
               previewUrl={previewUrl}
               error={error}
               isDragging={isDragging}
-              inputRef={inputRef}
               onFileSelect={handleFile}
               onDragStateChange={setDragging}
               onOpenPicker={openFilePicker}
               onClear={handleClearPhoto}
             />
-          ) : (
-            <div className="space-y-4">
+          ) : selectedClothing && overlay ? (
+            <div ref={fittingPreviewRef} className="space-y-4">
               <TryOnPreview
                 photoUrl={previewUrl}
                 clothing={selectedClothing}
-                compositedUrl={compositedUrl}
-                isCompositing={isCompositing}
+                overlay={overlay}
+                onOverlayChange={handleOverlayChange}
+                compositedUrl={null}
+                interactive
               />
-              {compositeError && (
-                <p className="text-center text-xs text-amber-600" role="alert">
-                  {compositeError} (오버레이 미리보기로 표시됩니다)
-                </p>
-              )}
-              <div className="flex justify-center gap-2">
+              <div className="flex flex-wrap justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={resetOverlay}
+                  className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100"
+                >
+                  옷 위치 초기화
+                </button>
                 <button
                   type="button"
                   onClick={openFilePicker}
                   className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-violet-300"
                 >
                   다른 사진
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedClothingId(null)}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-violet-300"
+                >
+                  옷 다시 고르기
                 </button>
                 <button
                   type="button"
@@ -191,6 +248,12 @@ export function UploadPanel() {
                 </button>
               </div>
             </div>
+          ) : (
+            <PhotoPreviewFrame
+              photoUrl={previewUrl}
+              onChangePhoto={openFilePicker}
+              onClearPhoto={handleClearPhoto}
+            />
           )}
 
           <ClothingPicker
