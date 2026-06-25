@@ -3,7 +3,9 @@ import type { ClothingItem } from "@/types/clothing";
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
-    image.crossOrigin = "anonymous";
+    if (src.startsWith("http://") || src.startsWith("https://")) {
+      image.crossOrigin = "anonymous";
+    }
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error("IMAGE_LOAD_FAILED"));
     image.src = src;

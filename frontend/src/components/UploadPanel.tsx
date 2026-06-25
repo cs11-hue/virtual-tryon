@@ -7,10 +7,11 @@ import { PhotoDropzone } from "@/components/PhotoDropzone";
 import { StylingProgress } from "@/components/StylingProgress";
 import { StylingResult } from "@/components/StylingResult";
 import { TryOnPreview } from "@/components/TryOnPreview";
-import { getClothingById } from "@/constants/clothing-catalog";
 import { getStepLabel, useMockStyling } from "@/hooks/useMockStyling";
+import { useCustomClothing } from "@/hooks/useCustomClothing";
 import { usePhotoUpload } from "@/hooks/usePhotoUpload";
 import { useTryOnComposite } from "@/hooks/useTryOnComposite";
+import { mergeClothingCatalog, resolveClothingById } from "@/lib/resolve-clothing";
 import type { ClothingItem } from "@/types/clothing";
 
 function getPanelTitle(phase: ReturnType<typeof useMockStyling>["phase"]): string {
@@ -33,7 +34,7 @@ function getPanelDescription(
     case "result":
       return "슬라이더로 원본과 피팅 결과를 비교해 보세요.";
     default:
-      return "전신 사진을 올리고 입힐 옷을 골라 미리보기를 확인하세요.";
+      return "전신 사진을 올리고 입힐 옷을 고르거나 직접 올려 미리보기를 확인하세요.";
   }
 }
 
@@ -51,15 +52,24 @@ export function UploadPanel() {
   } = usePhotoUpload();
 
   const { phase, progress, startStyling, resetStyling } = useMockStyling();
+  const { customItems, addCustomClothing, removeCustomClothing } =
+    useCustomClothing();
 
   const [selectedClothingId, setSelectedClothingId] = useState<string | null>(
     null,
   );
 
+  const clothingItems = useMemo(
+    () => mergeClothingCatalog(customItems),
+    [customItems],
+  );
+
   const selectedClothing = useMemo(
     () =>
-      selectedClothingId ? getClothingById(selectedClothingId) ?? null : null,
-    [selectedClothingId],
+      selectedClothingId
+        ? resolveClothingById(selectedClothingId, customItems) ?? null
+        : null,
+    [selectedClothingId, customItems],
   );
 
   const { compositedUrl, isCompositing, error: compositeError } =
@@ -84,6 +94,17 @@ export function UploadPanel() {
   const handleClearPhoto = () => {
     clearPhoto();
     setSelectedClothingId(null);
+  };
+
+  const handleRemoveCustom = (id: string) => {
+    removeCustomClothing(id);
+    if (selectedClothingId === id) {
+      setSelectedClothingId(null);
+    }
+  };
+
+  const handleCustomAdded = (item: ClothingItem) => {
+    setSelectedClothingId(item.id);
   };
 
   const panelWidthClass =
@@ -173,8 +194,12 @@ export function UploadPanel() {
           )}
 
           <ClothingPicker
+            items={clothingItems}
             selectedId={selectedClothingId}
             onSelect={handleSelectClothing}
+            onAddCustom={addCustomClothing}
+            onCustomAdded={handleCustomAdded}
+            onRemoveCustom={handleRemoveCustom}
             disabled={!previewUrl}
           />
 

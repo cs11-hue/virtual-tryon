@@ -18,4 +18,6 @@ export interface ClothingItem {
   imageUrl: string;
   overlay: ClothingOverlay;
   styleKey: OutfitStyleKey;
+  /** 사용자가 직접 업로드한 옷 */
+  isCustom?: boolean;
 }

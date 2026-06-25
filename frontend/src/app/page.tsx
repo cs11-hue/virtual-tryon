@@ -22,8 +22,8 @@ export default function HomePage() {
             </span>
           </h1>
           <p className="mt-4 text-base leading-relaxed text-slate-300 sm:text-lg">
-            전신 사진을 업로드하고 카탈로그에서 옷을 고르면, AI가 내 사진
-            위에 가상으로 입혀 줍니다. 슬라이더로 전·후를 비교해 보세요.
+            전신 사진을 업로드하고, 카탈로그에서 고르거나 직접 올린 옷을
+            선택하면 AI가 내 사진 위에 가상으로 입혀 줍니다.
           </p>
         </div>
 
