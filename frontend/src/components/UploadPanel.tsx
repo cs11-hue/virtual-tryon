@@ -6,19 +6,16 @@ import { ClothingPicker } from "@/components/ClothingPicker";
 import { PhotoDropzone } from "@/components/PhotoDropzone";
 import { StylingProgress } from "@/components/StylingProgress";
 import { StylingResult } from "@/components/StylingResult";
-import {
-  PhotoPreviewFrame,
-  TryOnPreview,
-} from "@/components/TryOnPreview";
+import { TryOnPreview } from "@/components/TryOnPreview";
 import { getStepLabel, useMockStyling } from "@/hooks/useMockStyling";
 import { useClothingOverlay } from "@/hooks/useClothingOverlay";
 import { useCustomClothing } from "@/hooks/useCustomClothing";
+import { usePhotoTransform } from "@/hooks/usePhotoTransform";
 import { usePhotoUpload } from "@/hooks/usePhotoUpload";
 import { useTryOnComposite } from "@/hooks/useTryOnComposite";
 import { mergeClothingCatalog, resolveClothingById } from "@/lib/resolve-clothing";
-import { normalizeOverlay } from "@/lib/overlay-bounds";
 import { ACCEPTED_IMAGE_TYPES } from "@/lib/validate-image-file";
-import type { ClothingItem, ClothingOverlay } from "@/types/clothing";
+import type { ClothingItem } from "@/types/clothing";
 
 function getPanelTitle(phase: ReturnType<typeof useMockStyling>["phase"]): string {
   switch (phase) {
@@ -40,7 +37,7 @@ function getPanelDescription(
     case "result":
       return "슬라이더로 원본과 피팅 결과를 비교해 보세요.";
     default:
-      return "옷을 고른 뒤 미리보기에서 드래그로 옮기고, 더블클릭으로 크기를 바꿔 보세요.";
+      return "전신 사진·옷을 선택해 드래그로 옮기고, 더블클릭해 크기(%)를 입력하세요.";
   }
 }
 
@@ -66,6 +63,13 @@ export function UploadPanel() {
   );
   const fittingPreviewRef = useRef<HTMLDivElement>(null);
 
+  const {
+    transform: photoTransform,
+    photoAspect,
+    setTransform: setPhotoTransform,
+    resetTransform: resetPhotoTransform,
+  } = usePhotoTransform(previewUrl);
+
   const clothingItems = useMemo(
     () => mergeClothingCatalog(customItems),
     [customItems],
@@ -79,26 +83,28 @@ export function UploadPanel() {
     [selectedClothingId, customItems],
   );
 
-  const { overlay, setOverlay, resetOverlay } =
-    useClothingOverlay(selectedClothing);
-
-  const handleOverlayChange = (next: ClothingOverlay) => {
-    setOverlay(normalizeOverlay(next));
-  };
+  const {
+    overlay: garmentTransform,
+    garmentAspect,
+    setOverlay: setGarmentTransform,
+    resetOverlay: resetGarmentTransform,
+  } = useClothingOverlay(selectedClothing, photoTransform, photoAspect);
 
   const compositeActive = phase === "loading" || phase === "result";
 
   const { compositedUrl } = useTryOnComposite(
     previewUrl,
     selectedClothing,
-    overlay,
+    photoTransform,
+    garmentTransform,
     compositeActive,
   );
 
   const canSubmit =
     Boolean(file) &&
     Boolean(selectedClothing) &&
-    Boolean(overlay) &&
+    Boolean(photoTransform) &&
+    Boolean(garmentTransform) &&
     !error &&
     phase === "idle";
 
@@ -107,7 +113,7 @@ export function UploadPanel() {
   };
 
   useEffect(() => {
-    if (!previewUrl || !selectedClothingId || phase !== "idle") return;
+    if (!previewUrl || phase !== "idle") return;
     fittingPreviewRef.current?.scrollIntoView({
       behavior: "smooth",
       block: "start",
@@ -142,7 +148,7 @@ export function UploadPanel() {
   const panelWidthClass =
     phase === "result"
       ? "max-w-3xl"
-      : previewUrl && selectedClothing
+      : previewUrl
         ? "max-w-2xl"
         : "max-w-lg";
 
@@ -180,8 +186,11 @@ export function UploadPanel() {
         <StylingProgress
           progress={progress}
           previewUrl={previewUrl}
+          photoTransform={photoTransform}
+          photoAspect={photoAspect}
           clothing={selectedClothing}
-          overlay={overlay}
+          garmentTransform={garmentTransform}
+          garmentAspect={garmentAspect}
           compositedUrl={compositedUrl}
         />
       )}
@@ -207,53 +216,64 @@ export function UploadPanel() {
               onOpenPicker={openFilePicker}
               onClear={handleClearPhoto}
             />
-          ) : selectedClothing && overlay ? (
-            <div ref={fittingPreviewRef} className="space-y-4">
-              <TryOnPreview
-                photoUrl={previewUrl}
-                clothing={selectedClothing}
-                overlay={overlay}
-                onOverlayChange={handleOverlayChange}
-                compositedUrl={null}
-                interactive
-              />
-              <div className="flex flex-wrap justify-center gap-2">
-                <button
-                  type="button"
-                  onClick={resetOverlay}
-                  className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100"
-                >
-                  옷 위치 초기화
-                </button>
-                <button
-                  type="button"
-                  onClick={openFilePicker}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-violet-300"
-                >
-                  다른 사진
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedClothingId(null)}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-violet-300"
-                >
-                  옷 다시 고르기
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClearPhoto}
-                  className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-rose-600"
-                >
-                  사진 삭제
-                </button>
-              </div>
-            </div>
           ) : (
-            <PhotoPreviewFrame
-              photoUrl={previewUrl}
-              onChangePhoto={openFilePicker}
-              onClearPhoto={handleClearPhoto}
-            />
+            photoTransform && (
+              <div ref={fittingPreviewRef} className="space-y-4">
+                <TryOnPreview
+                  photoUrl={previewUrl}
+                  photoTransform={photoTransform}
+                  onPhotoTransformChange={setPhotoTransform}
+                  photoAspect={photoAspect}
+                  clothing={selectedClothing}
+                  garmentTransform={garmentTransform}
+                  onGarmentTransformChange={setGarmentTransform}
+                  garmentAspect={garmentAspect}
+                  compositedUrl={null}
+                  interactive
+                />
+                <div className="flex flex-wrap justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={resetPhotoTransform}
+                    className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-100"
+                  >
+                    사진 위치 초기화
+                  </button>
+                  {selectedClothing && (
+                    <button
+                      type="button"
+                      onClick={resetGarmentTransform}
+                      className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100"
+                    >
+                      옷 위치 초기화
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={openFilePicker}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-violet-300"
+                  >
+                    다른 사진
+                  </button>
+                  {selectedClothing && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedClothingId(null)}
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-violet-300"
+                    >
+                      옷 다시 고르기
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleClearPhoto}
+                    className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-rose-600"
+                  >
+                    사진 삭제
+                  </button>
+                </div>
+              </div>
+            )
           )}
 
           <ClothingPicker

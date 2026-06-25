@@ -2,21 +2,28 @@
 
 import { TryOnPreview } from "@/components/TryOnPreview";
 import { STYLING_LOADING_MESSAGE } from "@/types/styling";
-import type { ClothingItem, ClothingOverlay } from "@/types/clothing";
+import type { ClothingItem } from "@/types/clothing";
+import type { LayerTransform } from "@/types/layer";
 
 export interface StylingProgressProps {
   progress: number;
   previewUrl: string | null;
+  photoTransform?: LayerTransform | null;
+  photoAspect?: number;
   clothing?: ClothingItem | null;
-  overlay?: ClothingOverlay | null;
+  garmentTransform?: LayerTransform | null;
+  garmentAspect?: number;
   compositedUrl?: string | null;
 }
 
 export function StylingProgress({
   progress,
   previewUrl,
+  photoTransform = null,
+  photoAspect = 3 / 4,
   clothing = null,
-  overlay = null,
+  garmentTransform = null,
+  garmentAspect = 0.75,
   compositedUrl = null,
 }: StylingProgressProps) {
   return (
@@ -68,18 +75,17 @@ export function StylingProgress({
         </div>
       </div>
 
-      {previewUrl && clothing && overlay && (
+      {previewUrl && photoTransform && (
         <TryOnPreview
           photoUrl={previewUrl}
+          photoTransform={photoTransform}
+          photoAspect={photoAspect}
           clothing={clothing}
-          overlay={overlay}
+          garmentTransform={garmentTransform}
+          garmentAspect={garmentAspect}
           compositedUrl={compositedUrl}
           isCompositing={progress < 100 && !compositedUrl}
         />
-      )}
-
-      {previewUrl && !clothing && (
-        <div className="relative aspect-[3/4] w-full animate-pulse overflow-hidden rounded-2xl bg-slate-200" />
       )}
     </div>
   );

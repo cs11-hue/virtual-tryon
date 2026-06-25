@@ -1,21 +1,22 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import {
-  DraggableGarmentOverlay,
-  StaticGarmentOverlay,
-} from "@/components/DraggableGarmentOverlay";
-import { useImageNaturalSize } from "@/hooks/useImageNaturalSize";
-import type { ClothingItem, ClothingOverlay } from "@/types/clothing";
+import { DraggableLayer, StaticLayer } from "@/components/DraggableLayer";
+import type { ClothingItem } from "@/types/clothing";
+import type { LayerTransform } from "@/types/layer";
 
-const FALLBACK_PHOTO_SIZE = { width: 3, height: 4 };
+type ActiveLayer = "photo" | "garment";
 
 export interface TryOnPreviewProps {
   photoUrl: string;
+  photoTransform: LayerTransform | null;
+  onPhotoTransformChange?: (transform: LayerTransform) => void;
+  photoAspect: number;
   clothing: ClothingItem | null;
-  overlay: ClothingOverlay | null;
-  onOverlayChange?: (overlay: ClothingOverlay) => void;
+  garmentTransform: LayerTransform | null;
+  onGarmentTransformChange?: (transform: LayerTransform) => void;
+  garmentAspect: number;
   compositedUrl: string | null;
   isCompositing?: boolean;
   interactive?: boolean;
@@ -23,25 +24,42 @@ export interface TryOnPreviewProps {
 
 export function TryOnPreview({
   photoUrl,
+  photoTransform,
+  onPhotoTransformChange,
+  photoAspect,
   clothing,
-  overlay,
-  onOverlayChange,
+  garmentTransform,
+  onGarmentTransformChange,
+  garmentAspect,
   compositedUrl,
   isCompositing = false,
   interactive = false,
 }: TryOnPreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { imgRef, naturalSize, handleLoad } = useImageNaturalSize(photoUrl);
-  const photoNaturalSize = naturalSize ?? FALLBACK_PHOTO_SIZE;
+  const [activeLayer, setActiveLayer] = useState<ActiveLayer>("photo");
 
-  const showGarment = Boolean(clothing && overlay && !compositedUrl);
+  useEffect(() => {
+    setActiveLayer(clothing ? "garment" : "photo");
+  }, [clothing?.id, clothing]);
+
   const canInteract =
-    interactive &&
+    interactive && !compositedUrl && !isCompositing;
+
+  const canInteractPhoto =
+    canInteract && photoTransform && onPhotoTransformChange;
+
+  const canInteractGarment =
+    canInteract &&
     clothing &&
-    overlay &&
-    onOverlayChange &&
-    !compositedUrl &&
-    !isCompositing;
+    garmentTransform &&
+    onGarmentTransformChange;
+
+  const showLayers = !compositedUrl && photoTransform;
+
+  const photoZIndex =
+    activeLayer === "photo" && canInteractPhoto ? 30 : 10;
+  const garmentZIndex =
+    activeLayer === "garment" && canInteractGarment ? 30 : 20;
 
   return (
     <div className="space-y-2">
@@ -55,15 +73,45 @@ export function TryOnPreview({
       </div>
 
       {canInteract && (
-        <div className="rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-sm text-violet-900">
-          <strong>드래그</strong>로 옷을 옮기고, <strong>더블클릭</strong>으로
-          크기를 바꿀 수 있어요.
-        </div>
+        <>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveLayer("photo")}
+              className={[
+                "rounded-lg border px-3 py-1.5 text-xs font-medium transition",
+                activeLayer === "photo"
+                  ? "border-sky-500 bg-sky-50 text-sky-800 ring-2 ring-sky-200"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-sky-300",
+              ].join(" ")}
+            >
+              전신 사진 조절
+            </button>
+            {clothing && (
+              <button
+                type="button"
+                onClick={() => setActiveLayer("garment")}
+                className={[
+                  "rounded-lg border px-3 py-1.5 text-xs font-medium transition",
+                  activeLayer === "garment"
+                    ? "border-violet-500 bg-violet-50 text-violet-800 ring-2 ring-violet-200"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-violet-300",
+                ].join(" ")}
+              >
+                옷 조절
+              </button>
+            )}
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+            위에서 조절할 대상을 고른 뒤, <strong>드래그</strong>로 옮기고{" "}
+            <strong>더블클릭</strong>하면 크기를 숫자로 입력할 수 있어요.
+          </div>
+        </>
       )}
 
       <div
         ref={containerRef}
-        className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-inner"
+        className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 shadow-inner"
       >
         {compositedUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -77,97 +125,73 @@ export function TryOnPreview({
             className="h-full w-full object-contain"
           />
         ) : (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              ref={imgRef}
-              src={photoUrl}
-              alt="업로드한 전신 사진"
-              className={[
-                "h-full w-full object-contain",
-                canInteract ? "pointer-events-none select-none" : "",
-              ].join(" ")}
-              onLoad={handleLoad}
-              draggable={false}
-            />
-            {showGarment && canInteract && clothing && overlay && (
-              <DraggableGarmentOverlay
-                clothing={clothing}
-                overlay={overlay}
-                onOverlayChange={onOverlayChange}
-                containerRef={containerRef}
-                photoNaturalSize={photoNaturalSize}
-              />
-            )}
-            {showGarment && !canInteract && clothing && overlay && (
-              <StaticGarmentOverlay
-                clothing={clothing}
-                overlay={overlay}
-                onOverlayChange={() => {}}
-                containerRef={containerRef}
-                photoNaturalSize={photoNaturalSize}
-              />
-            )}
-          </>
+          showLayers && (
+            <>
+              {canInteractPhoto && photoTransform && onPhotoTransformChange ? (
+                <DraggableLayer
+                  imageUrl={photoUrl}
+                  alt="업로드한 전신 사진"
+                  transform={photoTransform}
+                  onTransformChange={onPhotoTransformChange}
+                  containerRef={containerRef}
+                  aspect={photoAspect}
+                  zIndex={photoZIndex}
+                  borderClassName="border-sky-500 bg-sky-400/10"
+                  label="전신 사진"
+                  isActive={activeLayer === "photo"}
+                />
+              ) : (
+                <StaticLayer
+                  imageUrl={photoUrl}
+                  transform={photoTransform}
+                  containerRef={containerRef}
+                  aspect={photoAspect}
+                  zIndex={10}
+                />
+              )}
+              {clothing &&
+                garmentTransform &&
+                (canInteractGarment && onGarmentTransformChange ? (
+                  <DraggableLayer
+                    imageUrl={clothing.imageUrl}
+                    alt={clothing.name}
+                    transform={garmentTransform}
+                    onTransformChange={onGarmentTransformChange}
+                    containerRef={containerRef}
+                    aspect={garmentAspect}
+                    zIndex={garmentZIndex}
+                    borderClassName="border-violet-500 bg-violet-400/15"
+                    label="옷"
+                    isActive={activeLayer === "garment"}
+                  />
+                ) : (
+                  <StaticLayer
+                    imageUrl={clothing.imageUrl}
+                    transform={garmentTransform}
+                    containerRef={containerRef}
+                    aspect={garmentAspect}
+                    zIndex={20}
+                    opacity={garmentTransform.opacity}
+                  />
+                ))}
+            </>
+          )
         )}
 
         {isCompositing && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 backdrop-blur-[2px]">
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-white/60 backdrop-blur-[2px]">
             <span className="rounded-full bg-white px-3 py-1.5 text-xs font-medium text-violet-700 shadow">
               합성 중...
             </span>
           </div>
         )}
 
-        {clothing && !isCompositing && (
-          <span className="pointer-events-none absolute bottom-3 left-3 z-20 rounded-md bg-black/55 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-sm">
-            {canInteract
-              ? "드래그 이동 · 더블클릭 크기"
-              : compositedUrl
-                ? "합성 미리보기"
-                : "미리보기"}
+        {canInteract && (
+          <span className="pointer-events-none absolute bottom-3 left-3 z-40 rounded-md bg-black/55 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-sm">
+            {activeLayer === "photo" ? "전신 사진" : "옷"} · 드래그 이동 ·
+            더블클릭 크기 입력
           </span>
         )}
-      </div>
-    </div>
-  );
-}
-
-export function PhotoPreviewFrame({
-  photoUrl,
-  onChangePhoto,
-  onClearPhoto,
-}: {
-  photoUrl: string;
-  onChangePhoto: () => void;
-  onClearPhoto: () => void;
-}) {
-  return (
-    <div className="space-y-3">
-      <p className="text-sm font-medium text-slate-700">업로드한 전신 사진</p>
-      <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={photoUrl}
-          alt="업로드한 전신 사진"
-          className="h-full w-full object-contain p-2"
-        />
-      </div>
-      <div className="flex justify-center gap-2">
-        <button
-          type="button"
-          onClick={onChangePhoto}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-violet-300"
-        >
-          다른 사진
-        </button>
-        <button
-          type="button"
-          onClick={onClearPhoto}
-          className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-rose-600"
-        >
-          사진 삭제
-        </button>
       </div>
     </div>
   );

@@ -1,6 +1,10 @@
-import type { ClothingOverlay } from "@/types/clothing";
+import type { LayerTransform } from "@/types/layer";
 
-import { overlayToPixelRect } from "./object-contain-layout";
+import {
+  layerToPixelRect,
+  PREVIEW_ASPECT,
+  REF_CONTAINER,
+} from "./layer-layout";
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -15,45 +19,68 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 /**
- * 사용자 사진 위에 선택한 옷 이미지를 합성해 Blob URL을 반환한다.
- * (백엔드 AI 피팅 연동 전 Mock)
+ * 사용자 사진과 옷을 레이어 위치에 맞춰 합성해 Blob URL을 반환한다.
  */
 export async function compositeTryOnImage(
   photoUrl: string,
   garmentUrl: string,
-  overlay: ClothingOverlay,
+  photoTransform: LayerTransform,
+  garmentTransform: LayerTransform,
 ): Promise<string> {
   const [photo, garment] = await Promise.all([
     loadImage(photoUrl),
     loadImage(garmentUrl),
   ]);
 
-  const width = photo.naturalWidth || photo.width;
-  const height = photo.naturalHeight || photo.height;
+  const canvasWidth = 900;
+  const canvasHeight = Math.round(canvasWidth / PREVIEW_ASPECT);
+  const container = {
+    x: 0,
+    y: 0,
+    width: canvasWidth,
+    height: canvasHeight,
+  };
 
   const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
 
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("CANVAS_CONTEXT_FAILED");
 
-  ctx.drawImage(photo, 0, 0, width, height);
+  ctx.fillStyle = "#e2e8f0";
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-  const imageRect = { x: 0, y: 0, width, height };
+  const photoAspect =
+    photo.naturalWidth > 0
+      ? photo.naturalWidth / photo.naturalHeight
+      : REF_CONTAINER.width / REF_CONTAINER.height;
+  const photoRect = layerToPixelRect(container, photoTransform, photoAspect);
+  ctx.drawImage(
+    photo,
+    photoRect.x,
+    photoRect.y,
+    photoRect.width,
+    photoRect.height,
+  );
+
   const garmentAspect =
     garment.naturalWidth > 0
       ? garment.naturalWidth / garment.naturalHeight
       : 0.75;
-  const pixelRect = overlayToPixelRect(imageRect, overlay, garmentAspect);
+  const garmentRect = layerToPixelRect(
+    container,
+    garmentTransform,
+    garmentAspect,
+  );
 
-  ctx.globalAlpha = overlay.opacity ?? 0.9;
+  ctx.globalAlpha = garmentTransform.opacity ?? 0.92;
   ctx.drawImage(
     garment,
-    pixelRect.x,
-    pixelRect.y,
-    pixelRect.width,
-    pixelRect.height,
+    garmentRect.x,
+    garmentRect.y,
+    garmentRect.width,
+    garmentRect.height,
   );
   ctx.globalAlpha = 1;
 
